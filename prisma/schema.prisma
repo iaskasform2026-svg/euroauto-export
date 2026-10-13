@@ -1,0 +1,443 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  passwordHash     String
+  role             String    @default("CLIENT")
+  accountType      String    @default("PARTICULIER")
+  legalName        String
+  firstName        String?
+  lastName         String?
+  address          String
+  country          String
+  phoneCountryCode String
+  phone            String
+  emailVerifiedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  isDemo           Boolean   @default(false)
+
+  consents         Consent[]
+  requests         VehicleRequest[]
+  cases            SaleCase[]           @relation("ClientCases")
+  assignedCases    SaleCase[]           @relation("AssigneeCases")
+  messagesSent     Message[]            @relation("MessageSender")
+  documents        Document[]
+  appointments     Appointment[]        @relation("CreatedAppointments")
+  appointmentParts AppointmentParticipant[]
+  auditLogs        AuditLog[]
+  emailTokens      EmailToken[]
+  contactLogs      ContactLog[]
+  callReports      CallReport[]
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  accepted  Boolean
+  text      String
+  ip        String?
+  createdAt DateTime @default(now())
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  type      String
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model VehicleRequest {
+  id                 String   @id @default(cuid())
+  clientId           String
+  client             User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  destinationCountry String
+  make               String
+  model              String
+  version            String?
+  yearMin            Int?
+  yearMax            Int?
+  mileageMax         Int?
+  engine             String?
+  fuel               String?
+  gearbox            String?
+  body               String?
+  mustHaveOptions    String?
+  color              String?
+  seats              Int?
+  otherPreferences   String?
+  budgetMax          Float
+  currency           String   @default("EUR")
+  budgetScope        String
+  desiredDelay       String?
+  comments           String?
+  status             String   @default("DEMANDE_ENREGISTREE")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cases      SaleCase[]
+  matches    VehicleMatch[]
+  proposals  Proposal[]
+}
+
+model Vendor {
+  id           String   @id @default(cuid())
+  type         String
+  legalName    String
+  email        String?
+  phone        String?
+  address      String?
+  country      String?
+  notes        String?
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  vehicles     Vehicle[]
+  contactLogs  ContactLog[]
+  callReports  CallReport[]
+}
+
+model Vehicle {
+  id                 String   @id @default(cuid())
+  source             String
+  originalUrl        String?
+  externalId         String?
+  collectedAt        DateTime @default(now())
+  lastCheckedAt      DateTime @default(now())
+  available          Boolean  @default(true)
+  unavailableReason  String?
+  fingerprint        String
+  make               String
+  model              String
+  version            String?
+  year               Int?
+  mileage            Int?
+  fuel               String?
+  transmission       String?
+  powerHp            Int?
+  options            String?
+  condition          String?
+  sellerPrice        Float
+  currency           String   @default("EUR")
+  taxInfo            String?
+  locationCity       String?
+  locationCountry    String?
+  locationAddress    String?
+  description        String?
+  sellerType         String
+  history            String?
+  maintenance        String?
+  technicalInspection String?
+  warranty           String?
+  missingFields      String?
+  unverifiedFields   String?
+  internalNotes      String?
+  isDemo             Boolean  @default(true)
+  vendorId           String?
+  vendor             Vendor?  @relation(fields: [vendorId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  photos     VehiclePhoto[]
+  matches    VehicleMatch[]
+  proposals  Proposal[]
+
+  @@unique([source, externalId])
+  @@index([fingerprint])
+}
+
+model VehiclePhoto {
+  id         String  @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  url        String
+  caption    String?
+  usable     Boolean @default(true)
+  sanitized  Boolean @default(false)
+}
+
+model VehicleMatch {
+  id           String         @id @default(cuid())
+  requestId    String
+  request      VehicleRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  vehicleId    String
+  vehicle      Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  score        Int
+  gaps         String
+  createdAt    DateTime       @default(now())
+
+  @@unique([requestId, vehicleId])
+}
+
+model Proposal {
+  id              String         @id @default(cuid())
+  requestId       String
+  request         VehicleRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  vehicleId       String
+  vehicle         Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  caseId          String?
+  saleCase        SaleCase?      @relation(fields: [caseId], references: [id])
+  status          String         @default("BROUILLON")
+  sellerPrice     Float
+  markupRate      Float          @default(0.25)
+  proposedPrice   Float
+  currency        String         @default("EUR")
+  validUntil      DateTime
+  clientMessage   String?
+  adminNotes      String?
+  createdById     String
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+
+  fees ExtraFee[]
+}
+
+model ExtraFee {
+  id          String   @id @default(cuid())
+  proposalId  String
+  proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  label       String
+  amount      Float
+  currency    String   @default("EUR")
+  confirmed   Boolean  @default(false)
+  notes       String?
+}
+
+model SaleCase {
+  id                 String   @id @default(cuid())
+  reference          String   @unique
+  clientId           String
+  client             User     @relation("ClientCases", fields: [clientId], references: [id])
+  requestId          String
+  request            VehicleRequest @relation(fields: [requestId], references: [id])
+  assigneeId         String?
+  assignee           User?    @relation("AssigneeCases", fields: [assigneeId], references: [id])
+  status             String   @default("DEMANDE_ENREGISTREE")
+  purchaseCountry    String?
+  destinationCountry String?
+  transportMode      String?
+  vendorConfirmed    Boolean  @default(false)
+  vendorProof        String?
+  agreedConditions   String?
+  cancellationReason String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  proposals    Proposal[]
+  history      StatusHistory[]
+  checklist    ChecklistItem[]
+  messages     Message[]
+  documents    Document[]
+  appointments Appointment[]
+  payments     Payment[]
+  contactLogs  ContactLog[]
+  callReports  CallReport[]
+}
+
+model StatusHistory {
+  id        String   @id @default(cuid())
+  caseId    String
+  saleCase  SaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fromStatus String?
+  toStatus  String
+  note      String?
+  actorId   String?
+  createdAt DateTime @default(now())
+}
+
+model ChecklistItem {
+  id            String   @id @default(cuid())
+  caseId        String
+  saleCase      SaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  category      String
+  title         String
+  description   String
+  owner         String
+  expectedDocs  String?
+  estimatedCost Float?
+  currency      String   @default("EUR")
+  dueDate       DateTime?
+  status        String   @default("A_FAIRE")
+  certainty     String   @default("A_VERIFIER")
+  sourceName    String?
+  sourceUrl     String?
+  sourceDatedAt DateTime?
+  sortOrder     Int      @default(0)
+}
+
+model RegulatoryRule {
+  id            String   @id @default(cuid())
+  purchaseCountry String
+  destinationCountry String
+  clientType    String
+  transportMode String?
+  category      String
+  title         String
+  description   String
+  owner         String
+  expectedDocs  String?
+  estimatedCost Float?
+  certainty     String
+  sourceName    String?
+  sourceUrl     String?
+  sourceDatedAt DateTime?
+  active        Boolean  @default(true)
+}
+
+model ContactLog {
+  id          String   @id @default(cuid())
+  caseId      String?
+  saleCase    SaleCase? @relation(fields: [caseId], references: [id])
+  vendorId    String?
+  vendor      Vendor?  @relation(fields: [vendorId], references: [id])
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  channel     String
+  direction   String
+  subject     String?
+  body        String
+  actuallySent Boolean @default(false)
+  sentAt      DateTime?
+  attachments String?
+  createdAt   DateTime @default(now())
+}
+
+model CallReport {
+  id            String   @id @default(cuid())
+  caseId        String?
+  saleCase      SaleCase? @relation(fields: [caseId], references: [id])
+  vendorId      String?
+  vendor        Vendor?  @relation(fields: [vendorId], references: [id])
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id])
+  actuallyCalled Boolean @default(false)
+  calledAt      DateTime?
+  outcome       String
+  availability  String?
+  finalPrice    Float?
+  documents     String?
+  exportPossible Boolean?
+  notes         String
+  createdAt     DateTime @default(now())
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  caseId      String?
+  saleCase    SaleCase? @relation(fields: [caseId], references: [id])
+  uploaderId  String?
+  uploader    User?    @relation(fields: [uploaderId], references: [id])
+  title       String
+  category    String
+  visibility  String   @default("CLIENT")
+  filename    String
+  mimeType    String
+  content     String
+  createdAt   DateTime @default(now())
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  caseId      String
+  saleCase    SaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("CreatedAppointments", fields: [createdById], references: [id])
+  type        String
+  startsAt    DateTime
+  timezone    String
+  location    String?
+  notes       String?
+  status      String   @default("PROPOSE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  participants AppointmentParticipant[]
+}
+
+model AppointmentParticipant {
+  id             String      @id @default(cuid())
+  appointmentId  String
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?       @relation(fields: [userId], references: [id])
+  roleLabel      String
+  confirmed      Boolean     @default(false)
+  confirmedAt    DateTime?
+}
+
+model Payment {
+  id                    String   @id @default(cuid())
+  caseId                String
+  saleCase              SaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  kind                  String
+  amount                Float
+  currency              String   @default("EUR")
+  status                String   @default("EN_ATTENTE")
+  stripeSessionId       String?  @unique
+  stripePaymentIntentId String?  @unique
+  stripeEventId         String?  @unique
+  failureReason         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  caseId     String
+  saleCase   SaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  body       String
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  meta      String?
+  createdAt DateTime @default(now())
+}
+
+model PlatformSettings {
+  id               String  @id @default("default")
+  name             String
+  email            String
+  phone            String
+  address          String
+  country          String
+  commercialRole   String
+  contractsEnabled Boolean @default(false)
+  defaultCurrency  String  @default("EUR")
+  markupRate       Float   @default(0.25)
+  depositRate      Float   @default(0.30)
+  targetCountries  String
+  destinationCountries String
+}
