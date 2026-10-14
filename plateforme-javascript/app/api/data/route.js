@@ -1,9 +1,10 @@
+import {publicFeedUrl} from '../../inventory.js';
 import { matchesRequest } from '../../matching';
 import { getContext as context } from '../../data-access';
 export const dynamic = 'force-dynamic';
 const reply = (x, status = 200) => Response.json(x, { status });
 export async function GET() { const c = await context(); if (!c)
-    return reply({ error: 'Connexion requise' }, 401); const rows = await c.db.prepare('SELECT * FROM records').all(); const all = rows.results.map(r => ({ id: r.id, kind: r.kind, owner: r.owner, ...JSON.parse(r.data) })); const requests = all.filter(r => r.kind === 'request' && (c.admin || r.owner === c.user.userId)); const vehicles = all.filter(r => r.kind === 'vehicle'); const profiles = all.filter(r => r.kind === 'profile'); const matches = all.filter(r => r.kind === 'match'); return reply({ admin: c.admin, webSearchConfigured: !!c.searxngUrl, searchProvider: 'SearXNG', searxngUrl: c.admin ? c.searxngUrl : null, user: c.user, requests, profiles: c.admin ? profiles : profiles.filter(r => r.owner === c.user.userId), suppliers: c.admin ? all.filter(r => r.kind === 'supplier') : [], vehicles: c.admin ? vehicles : [], matches: c.admin ? matches : [], proposals: matches.filter(m => m.published && Number.isFinite(m.proposedPrice) && m.proposedPrice>0 && requests.some(r => r.id === m.requestId && vehicles.some(v => v.id === m.vehicleId && matchesRequest(r,v)))).map(m => { const v = vehicles.find(v => v.id === m.vehicleId); return v ? { id: m.id, requestId: m.requestId, brand: v.brand, model: v.model, engine: v.engine, year: v.year, price: m.proposedPrice, km: v.km } : null; }).filter(Boolean) }); }
+    return reply({ error: 'Connexion requise' }, 401); const rows = await c.db.prepare('SELECT * FROM records').all(); const all = rows.results.map(r => ({ id: r.id, kind: r.kind, owner: r.owner, ...JSON.parse(r.data) })); const requests = all.filter(r => r.kind === 'request' && (c.admin || r.owner === c.user.userId)); const vehicles = all.filter(r => r.kind === 'vehicle'); const profiles = all.filter(r => r.kind === 'profile'); const matches = all.filter(r => r.kind === 'match'); return reply({ admin: c.admin, searchProvider:'Flux fournisseurs', feedCount: c.admin ? all.filter(r=>r.kind==='supplier'&&r.feedUrl).length : 0, user: c.user, requests, profiles: c.admin ? profiles : profiles.filter(r => r.owner === c.user.userId), suppliers: c.admin ? all.filter(r => r.kind === 'supplier') : [], vehicles: c.admin ? vehicles : [], matches: c.admin ? matches : [], proposals: matches.filter(m => m.published && Number.isFinite(m.proposedPrice) && m.proposedPrice>0 && requests.some(r => r.id === m.requestId && vehicles.some(v => v.id === m.vehicleId && matchesRequest(r,v)))).map(m => { const v = vehicles.find(v => v.id === m.vehicleId); return v ? { id: m.id, requestId: m.requestId, brand: v.brand, model: v.model, engine: v.engine, year: v.year, price: m.proposedPrice, km: v.km } : null; }).filter(Boolean) }); }
 export async function POST(req) {
     const c = await context();
     if (!c)
@@ -28,7 +29,7 @@ export async function POST(req) {
         if (kind === 'supplier' && !str('name'))
             throw Error('Nom requis');
         if (kind === 'supplier' || kind === 'vehicle') {
-            if (data.feedUrl) { const u = new URL(data.feedUrl); if (u.protocol !== 'https:') throw Error('Le flux doit utiliser HTTPS'); }
+            if (data.feedUrl) data.feedUrl=publicFeedUrl(data.feedUrl.trim());
             if (data.url) {
                 const u = new URL(data.url);
                 if (!['https:', 'http:'].includes(u.protocol))
@@ -58,6 +59,18 @@ export async function PATCH(req) {
   if (!c) return reply({error:'Connexion requise'},401);
   try {
     const body = await req.json();
+    if(body.kind==='supplier'){
+      if(!c.admin)return reply({error:'Accès administrateur requis'},403);
+      const existing=await c.db.prepare('SELECT * FROM records WHERE id=? AND kind=?').bind(body.id,'supplier').first();
+      if(!existing)return reply({error:'Fournisseur introuvable'},404);
+      const old=JSON.parse(existing.data),d=body.data||{};
+      if(typeof d.name!=='string'||!d.name.trim()||d.name.length>499)return reply({error:'Nom du fournisseur requis'},400);
+      const website=String(d.url||'').trim();if(website&&!['http:','https:'].includes(new URL(website).protocol))return reply({error:'Lien du site invalide'},400);
+      const clean={name:d.name.trim(),country:String(d.country||'').slice(0,499),email:String(d.email||'').slice(0,499),phone:String(d.phone||'').slice(0,499),notes:String(d.notes||'').slice(0,2000),url:website,feedUrl:d.feedUrl?publicFeedUrl(d.feedUrl.trim()):'',createdAt:old.createdAt,updatedAt:new Date().toISOString()};
+      const writes=[c.db.prepare('UPDATE records SET data=? WHERE id=?').bind(JSON.stringify(clean),body.id)];
+      if((old.feedUrl||'')!==clean.feedUrl)writes.push(c.db.prepare("DELETE FROM records WHERE kind='vehicle' AND json_extract(data,'$.supplierId')=? AND json_extract(data,'$.sourceUrl') IS NOT NULL").bind(body.id));
+      await c.db.batch(writes);return reply({ok:true,id:body.id});
+    }
     const existing = await c.db.prepare('SELECT * FROM records WHERE id=? AND kind=?').bind(body.id,'request').first();
     if (!existing || existing.owner !== c.user.userId) return reply({error:'Commande inaccessible'},404);
     const old = JSON.parse(existing.data);

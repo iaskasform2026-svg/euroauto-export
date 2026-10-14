@@ -1,5 +1,5 @@
 import {getContext,readRecords} from '../../data-access';
-import {searchAnnouncements,SEARCH_SOURCES} from '../../web-search';
+import {rankMatches,synchronizeFeeds} from '../../feed-search';
 export const dynamic='force-dynamic';
 export async function POST(req){
   const c=await getContext();
@@ -7,12 +7,17 @@ export async function POST(req){
   if(!c.admin)return Response.json({error:'Accès administrateur requis'},{status:403});
   try{
     const {requestId}=await req.json();
-    if(!requestId)return Response.json({error:'Sélectionnez une commande pour rechercher ses 10 premières annonces sur les sites proposés.'},{status:400});
-    const records=await readRecords(c.db);
-    const request=records.find(r=>r.kind==='request'&&r.id===requestId);
-    if(!request)return Response.json({error:'Commande introuvable'},{status:404});
-    if(!c.searxngUrl)return Response.json({error:'Configurez l’URL de votre instance SearXNG avec la sortie JSON activée. Aucune clé Brave n’est nécessaire.',code:'SEARCH_NOT_CONFIGURED'},{status:503});
-    const {candidates,warnings}=await searchAnnouncements(request,c.searxngUrl);
-    return Response.json({mode:'web',provider:'SearXNG',candidates,warnings,results:candidates.map(v=>({requestId:request.id,vehicleId:v.id})),sources:SEARCH_SOURCES.map(s=>({name:s.name,ok:true,count:candidates.filter(v=>v.sourceId===s.id).length})),searchedAt:new Date().toISOString(),requestId,limit:10,message:'Jusqu’à 10 annonces classées selon la pertinence du moteur. Prix lus sur les pages accessibles ; critères, prix et disponibilité à vérifier avant publication.'},{headers:{'Cache-Control':'private, no-store'}});
-  }catch(e){return Response.json({error:e.message||'Recherche Internet impossible'},{status:502});}
+    const catalogueOnly=new URL(req.url).pathname.endsWith('/catalog-search');
+    let records=await readRecords(c.db);
+    const requests=records.filter(r=>r.kind==='request'&&(!requestId||r.id===requestId));
+    if(!requests.length)return Response.json({error:'Créez ou sélectionnez une commande avant de rechercher.'},{status:400});
+    const configured=records.filter(r=>r.kind==='supplier'&&r.feedUrl);
+    const feeds=configured.slice(0,8);
+    const sources=catalogueOnly?[]:await synchronizeFeeds(c,feeds);
+    if(!catalogueOnly)records=await readRecords(c.db);
+    const refreshed=new Map(sources.filter(s=>s.ok).map(s=>[s.supplierId,s.sourceUrl]));
+    const vehicles=records.filter(v=>v.kind==='vehicle'&&(catalogueOnly||refreshed.has(v.supplierId)&&refreshed.get(v.supplierId)===v.sourceUrl));
+    const {results,totalMatches}=rankMatches(requests,vehicles,10);
+    return Response.json({mode:catalogueOnly?'catalogue':'feeds',results,totalMatches,limit:10,feedCount:feeds.length,sources,searchedAt:new Date().toISOString(),warnings:configured.length>8?['Seuls les 8 premiers flux ont été consultés.']:[],message:catalogueOnly?'Catalogue enregistré : les prix peuvent dater de la dernière importation.':feeds.length?'Recherche dans les flux fournisseurs actualisés. Dix résultats maximum, triés par prix vendeur croissant. Prix fournisseur sans majoration.':'Aucun flux fournisseur configuré. Ajoutez une URL de stock JSON ou CSV dans Fournisseurs ; aucun catalogue manuel n’a été présenté comme une recherche de flux.'},{headers:{'Cache-Control':'private, no-store'}});
+  }catch(e){return Response.json({error:e.message||'Recherche des flux impossible'},{status:500});}
 }

@@ -6,8 +6,7 @@ export async function getContext() {
   const db = env.DB;
   await db.prepare('INSERT OR IGNORE INTO settings (id,value) VALUES (?,?)').bind('admin', user.userId).run();
   const row = await db.prepare('SELECT value FROM settings WHERE id=?').bind('admin').first();
-  const searchSetting = await db.prepare('SELECT value FROM settings WHERE id=?').bind('searxng_url').first();
-  return {user, db, admin: row.value === user.userId, searxngUrl: searchSetting?.value || env.SEARXNG_URL || null};
+  return {user, db, admin: row.value === user.userId, searchProvider: 'Flux fournisseurs'};
 }
 export async function readRecords(db) {
   const rows = await db.prepare('SELECT * FROM records').all();

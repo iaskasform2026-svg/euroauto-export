@@ -7,7 +7,7 @@ export function publicFeedUrl(value) {
   return u.toString();
 }
 export function parseInventory(input, supplierId, sourceUrl, fetchedAt) {
-  const items = Array.isArray(input) ? input : input.vehicles;
+  const items = Array.isArray(input) ? input : input?.vehicles;
   if (!Array.isArray(items)) throw Error('Le flux doit contenir une liste de véhicules JSON');
   let rejected = 0;
   const vehicles = items.slice(0,1000).flatMap(v => {
@@ -19,4 +19,28 @@ export function parseInventory(input, supplierId, sourceUrl, fetchedAt) {
     return [{brand:v.brand.trim(),model:v.model.trim(),engine:v.engine.trim(),year:v.year,price:v.price,km:v.km,url,supplierId,currency:'EUR',sourceUrl,fetchedAt,priceSource:'Flux fournisseur',notes:''}];
   });
   return {vehicles,rejected};
+}
+const headerKey=value=>String(value).replace(/^\uFEFF/,'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+export function parseCsv(text){
+  const firstLine=text.split(/\r?\n/,1)[0];const delimiter=(firstLine.match(/;/g)||[]).length>(firstLine.match(/,/g)||[]).length?';':',';
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];if(ch==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++;}else if(!quoted&&cell.length){throw Error('Guillemets CSV mal placés');}else quoted=!quoted;}
+    else if(!quoted&&ch===delimiter){row.push(cell);cell='';}
+    else if(!quoted&&(ch==='\n'||ch==='\r')){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(c=>c.trim()))rows.push(row);row=[];cell='';}
+    else cell+=ch;
+  }
+  if(quoted)throw Error('Champ CSV non fermé');row.push(cell);if(row.some(c=>c.trim()))rows.push(row);
+  if(!rows.length)throw Error('Flux CSV vide : en-têtes requis');
+  const names=rows.shift().map(headerKey);
+  if(new Set(names).size!==names.length)throw Error('En-têtes CSV dupliqués');
+  const aliases={marque:'brand',modele:'model',moteur:'engine',motorisation:'engine',annee:'year',prix:'price',kilometrage:'km',lien:'url',devise:'currency'};
+  const canonical=names.map(k=>aliases[k]||k);
+  if(!['brand','model','engine','year','price','km','url'].every(k=>canonical.includes(k)))throw Error('Colonnes CSV requises : brand, model, engine, year, price, km, url');
+  return rows.slice(0,1000).map(values=>{const item=Object.fromEntries(canonical.map((k,i)=>[k,(values[i]||'').trim()]));for(const key of ['year','price','km']){const raw=(item[key]||'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');item[key]=/^\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN;}return item;});
+}
+export function decodeInventory(body,contentType='',url=''){
+  const trimmed=body.trim().replace(/^\uFEFF/,'');
+  if(trimmed.startsWith('{')||trimmed.startsWith('[')){try{return JSON.parse(trimmed);}catch{throw Error('Flux JSON invalide');}}
+  if(contentType.includes('csv')||/\.csv(?:\?|$)/i.test(url)||trimmed.includes('\n')&&/[;,]/.test(trimmed.split('\n')[0]))return parseCsv(trimmed);
+  throw Error('Flux JSON ou CSV attendu. Une page de catalogue HTML n’est pas un flux de stock.');
 }

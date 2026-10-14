@@ -1,58 +1,61 @@
 # EuropAuto — JavaScript / React
 
-Plateforme automobile avec trois espaces : client, fournisseurs et rapprochement. L’application et ses API utilisent JavaScript/JSX ; le socle Vinext/Sites conserve ses fichiers TypeScript. Les données sont conservées en base D1.
+Plateforme avec espace client, portail fournisseurs et rapprochement. Application/API JavaScript et JSX, base D1, socle Vinext/Sites.
 
-## Fonctionnement
+## Recherche dans les flux fournisseurs publics
 
-- Connexion via ChatGPT et profil client (nom et téléphone).
-- Plusieurs choix par client : marque, modèle, moteur, année et prix proposé.
-- Modification d’une commande avec contrôle de propriété. Les anciennes propositions sont retirées atomiquement après modification.
-- Portail des sources européennes et base de concessionnaires.
-- Recherche web via votre instance SearXNG, sans clé Brave.
-- Jusqu’à 10 annonces distinctes sur mobile.de, AutoScout24 France, La Centrale et leboncoin, dans l’ordre retourné par le moteur.
-- Prix vendeur dans l’administration ; prix proposé au client saisi séparément, puis publication par case à cocher.
-- Le client reçoit uniquement le prix proposé ; coordonnées fournisseur et lien original restent dans l’administration.
+Le bouton principal **Rechercher dans les flux** télécharge les stocks JSON ou CSV des fournisseurs configurés, importe les véhicules et affiche les dix premières correspondances par prix vendeur croissant. Aucun serveur SearXNG ni clé d’API n’est nécessaire. Il faut des URL de stocks publics accessibles en HTTPS ; une page d’annonce ou de comparateur n’est pas un flux.
 
-## Activer la recherche sans clé
+1. Ouvrir **Fournisseurs**.
+2. Ajouter un fournisseur ou utiliser **Modifier** sur sa ligne.
+3. Renseigner **URL du flux public JSON ou CSV** avec une URL fournie par ce professionnel.
+4. Dans **Rapprochement**, choisir une demande, puis cliquer **Rechercher dans les flux**.
+5. Saisir le prix proposé au client et cocher la publication.
 
-Le moteur SearXNG doit être installé sur un serveur séparé. Les fichiers et instructions se trouvent dans [`deployment/searxng/README.md`](deployment/searxng/README.md).
+Aucun flux réel n’a été fourni ou connecté lors de la création. Sans URL configurée, le résultat indique explicitement l’absence de flux et reste vide. Le catalogue manuel n’est pas présenté comme une recherche de flux. Le bouton secondaire **Catalogue enregistré** consulte séparément les données déjà enregistrées et signale que les prix peuvent dater de leur dernière importation.
 
-Dans Rapprochement, cliquer **Configurer SearXNG**, saisir l’URL HTTPS de votre instance et utiliser **Tester et enregistrer**. La plateforme vérifie une réponse JSON avant de sauvegarder l’URL en base. Il est également possible de déclarer `SEARXNG_URL` dans l’environnement serveur ; la valeur enregistrée dans l’administration prend priorité.
+Les correspondances exigent marque, modèle, moteur et année identiques, ainsi qu’un prix vendeur inférieur ou égal au budget. La casse et les espaces en début/fin sont ignorés. Les doublons d’URL d’annonce sont supprimés par commande. Dix lignes maximum sont retournées, avec le nombre total de correspondances.
 
-Aucune clé de recherche API n’est nécessaire. Aucun serveur SearXNG n’a été créé ni raccordé à la version publiée à ce stade. Docker n’est pas disponible dans l’environnement de création ; les fichiers d’hébergement sont préparés, leur démarrage n’a pas été testé. Le site s’exécute sur Cloudflare Workers et ne peut pas héberger lui-même le service Python/Docker.
+## Formats de stock
 
-La recherche limite les domaines et les chemins aux annonces, supprime les doublons et conserve les dix premières. Elle peut afficher moins de dix résultats. Une annonce candidate doit être vérifiée et ajoutée au catalogue avant de publier un prix proposé. Le classement d’un moteur ne garantit pas à lui seul la motorisation, l’année, la disponibilité ou tous les autres critères.
-
-Les prix EUR proviennent des offres structurées JSON-LD des pages accessibles. Les prix absents restent À vérifier ; aucun budget ou extrait n’est utilisé pour inventer un prix. Les erreurs des moteurs et pages inaccessibles sont signalées. Aucune instance publique tierce n’est utilisée automatiquement comme solution de secours.
-
-## Catalogue et flux fournisseurs
-
-Le bouton secondaire **Catalogue / flux** interroge séparément les véhicules enregistrés et les flux JSON HTTPS renseignés sur les fournisseurs. Format du flux : une liste JSON ou un objet `vehicles`.
+JSON : une liste ou un objet `vehicles`, avec les champs ci-dessous.
 
 ```json
 {"vehicles":[{"brand":"Peugeot","model":"308","engine":"1.6 HDi","year":2015,"price":7999.95,"currency":"EUR","km":120000,"url":"https://concessionnaire.example/annonce-308"}]}
 ```
 
-Cet exemple décrit le format et n’est pas une annonce réelle. `price` et `km` doivent être numériques ; la devise doit être EUR. Les données incomplètes sont ignorées. Huit flux au maximum par recherche, 2 Mo et 1 000 véhicules par flux ; redirections non suivies. Les sources défaillantes sont exclues des résultats de cette recherche. Un flux complet remplace le stock importé de la même source.
+Cet exemple décrit le format ; ce n’est pas une annonce réelle. Les valeurs numériques JSON doivent être des nombres. Seuls les prix EUR sont pris en charge ; les stocks fournis doivent être en euros. Aucune conversion ou estimation de prix n’est faite.
 
-Le rapprochement du catalogue exige les quatre critères exacts (insensibles à la casse et aux espaces en début/fin) et un prix vendeur inférieur ou égal au budget. Après vérification, le prix proposé au client peut être enregistré et publié s’il est positif.
+CSV : séparateur virgule ou point-virgule, champs entre guillemets pris en charge. Colonnes obligatoires : `brand,model,engine,year,price,km,url`. Colonne `currency` facultative, valeur `EUR`. Les noms français `marque,modèle,moteur,année,prix,kilométrage,lien,devise` sont également acceptés. Les prix à virgule décimale sont acceptés, notamment avec le séparateur point-virgule.
 
-## Accès
+```csv
+marque;modèle;moteur;année;prix;kilométrage;lien;devise
+Peugeot;308;1.6 HDi;2015;7999,95;120000;https://concessionnaire.example/annonce-308;EUR
+```
 
-Le site est privé pour son propriétaire. Le premier compte authentifié est enregistré comme administrateur ; les autres comptes ne peuvent accéder qu’à leurs commandes et propositions publiées. Ouvrir d’abord avec le propriétaire avant d’étendre l’accès. Avant une ouverture publique, remplacer cet amorçage par une attribution explicite du rôle administrateur.
+Limites : huit flux par recherche, 2 Mo et 1 000 véhicules par flux ; redirections non suivies. Les téléchargements sont parallèles, puis chaque stock est remplacé dans une transaction indépendante. Un stock vide valide retire les anciennes annonces de cette source. Un flux complètement invalide ou inaccessible conserve les anciennes données en base mais les exclut des résultats de la recherche en cours. Les lignes partiellement invalides sont ignorées et comptées dans le rapport. Aucun prix n’est inventé pour une donnée manquante.
 
-## Fichiers principaux
+## Commandes et publication
 
-- `app/portal.jsx` : interface et formulaires.
-- `app/api/data/route.js` : commandes, fournisseurs, véhicules et prix proposés.
-- `app/api/search/route.js` : recherche SearXNG administrative.
-- `app/api/search-settings/route.js` : test de connexion et enregistrement de l’URL.
-- `app/web-search.js` : adaptation SearXNG, filtrage et lecture des annonces.
-- `app/api/catalog-search/route.js` : catalogue et flux JSON.
-- `app/matching.js` : règles de rapprochement.
-- `db/schema.js` et `drizzle/` : tables et migrations.
-- `deployment/searxng/` : hébergement Docker séparé.
+Les clients enregistrent plusieurs choix de véhicule, puis peuvent modifier chaque commande. L’API contrôle la propriété de la commande ; une modification conserve son identifiant et retire atomiquement les propositions précédentes.
+
+Le prix vendeur est affiché dans l’administration et le prix proposé est saisi séparément. La case Publier exige un prix proposé positif. Le client reçoit uniquement le prix proposé, sans prix vendeur, coordonnées fournisseur ni lien original. Sa colonne Propositions est vide tant qu’aucune ligne n’est publiée.
+
+Changer ou retirer l’URL d’un flux fournisseur retire ses anciennes annonces importées pour ne pas présenter une ancienne source comme le nouveau stock.
+
+## Accès et fichiers
+
+Le site reste privé pour son propriétaire. Le premier compte authentifié est administrateur ; avant toute ouverture publique, remplacer cet amorçage par une attribution explicite des rôles.
+
+- `app/portal.jsx` : interfaces et modification fournisseurs/commandes.
+- `app/api/search/route.js` : actualisation des flux et rapprochement.
+- `app/api/catalog-search/route.js` : catalogue enregistré.
+- `app/feed-search.js` et `app/inventory.js` : import JSON/CSV et classement.
+- `app/api/data/route.js` : données, contrôles d’accès et publication.
+- `db/schema.js` et `drizzle/` : données et migrations.
+
+L’ancienne route de configuration SearXNG est désactivée. Ses fichiers d’installation restent dans le projet à titre d’archive et ne sont pas nécessaires au parcours actuel.
 
 ## Validation
 
-Compilation de production et tests des critères, prix exacts, isolation client, modification atomique, limite de dix annonces, ordre, déduplication, domaines autorisés, connexion SearXNG et erreurs de JSON. Les tests réseau utilisent des réponses de test. Aucun test navigateur ni recherche de bout en bout sur une instance SearXNG réelle n’a été réalisé.
+Compilation de production ; tests d’import JSON/CSV, prix décimaux, limite de dix, classement, doublons, source invalide/indisponible, absence de flux sans faux retour au catalogue, et accès administrateur. Les tests réseau utilisent des réponses de test. Aucun flux fournisseur réel ni test navigateur n’a été vérifié de bout en bout.
