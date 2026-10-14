@@ -1,0 +1,4 @@
+{$SEARXNG_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy engine:8080
+}
