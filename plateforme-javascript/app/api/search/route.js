@@ -1,41 +1,18 @@
 import {getContext,readRecords} from '../../data-access';
-import {matchesRequest} from '../../matching';
-import {publicFeedUrl,parseInventory} from '../../inventory';
+import {searchAnnouncements,SEARCH_SOURCES} from '../../web-search';
 export const dynamic='force-dynamic';
-export async function POST(req) {
+export async function POST(req){
   const c=await getContext();
-  if(!c) return Response.json({error:'Connexion requise'},{status:401});
-  if(!c.admin) return Response.json({error:'Accès administrateur requis'},{status:403});
-  try {
+  if(!c)return Response.json({error:'Connexion requise'},{status:401});
+  if(!c.admin)return Response.json({error:'Accès administrateur requis'},{status:403});
+  try{
     const {requestId}=await req.json();
-    let all=await readRecords(c.db);
-    const requests=all.filter(r=>r.kind==='request'&&(!requestId||r.id===requestId));
-    if(!requests.length) return Response.json({error:'Créez ou sélectionnez une commande avant de rechercher'},{status:400});
-    const feeds=all.filter(r=>r.kind==='supplier'&&r.feedUrl).slice(0,8);
-    const sources=await Promise.all(feeds.map(async supplier=>{
-      try {
-        const sourceUrl=publicFeedUrl(supplier.feedUrl);
-        const response=await fetch(sourceUrl,{headers:{Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(12000)});
-        if(!response.ok) throw Error('Réponse HTTP '+response.status);
-        const bytes=Number(response.headers.get('Content-Length')||0);
-        if(bytes>2000000)throw Error('Flux trop volumineux (maximum 2 Mo)');
-        // Limit streamed responses too; do not trust Content-Length alone.
-        const reader=response.body.getReader();let size=0;const chunks=[];
-        while(true){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;if(size>2000000){await reader.cancel();throw Error('Flux trop volumineux (maximum 2 Mo)');}chunks.push(part.value);}
-        const combined=new Uint8Array(size);let offset=0;for(const chunk of chunks){combined.set(chunk,offset);offset+=chunk.length;}
-        const fetchedAt=new Date().toISOString();
-        const {vehicles,rejected}=parseInventory(JSON.parse(new TextDecoder().decode(combined)),supplier.id,sourceUrl,fetchedAt);
-        // Reconcile the entire source snapshot so sold/removed listings cannot remain in results.
-        const writes=[c.db.prepare("DELETE FROM records WHERE kind='vehicle' AND json_extract(data,'$.sourceUrl')=? AND json_extract(data,'$.supplierId')=?").bind(sourceUrl,supplier.id)];
-        for(const vehicle of vehicles){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(supplier.id+'|'+vehicle.url));const id='feed-'+Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');writes.push(c.db.prepare('INSERT INTO records (id,kind,owner,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(id,'vehicle',c.user.userId,JSON.stringify({...vehicle,createdAt:fetchedAt})));}
-        await c.db.batch(writes);
-        return {name:supplier.name,ok:true,count:vehicles.length,rejected};
-      } catch(e){return {name:supplier.name,ok:false,error:e.message};}
-    }));
-    all=await readRecords(c.db);
-    const failedSuppliers=new Set(feeds.filter(s=>sources.some(x=>x.name===s.name&&!x.ok)).map(s=>s.id));
-    const vehicles=all.filter(v=>v.kind==='vehicle'&&!(v.sourceUrl&&failedSuppliers.has(v.supplierId)));
-    const results=requests.flatMap(r=>vehicles.filter(v=>matchesRequest(r,v)).map(v=>({requestId:r.id,vehicleId:v.id})));
-    return Response.json({results,sources,feedCount:feeds.length,searchedAt:new Date().toISOString(),message:feeds.length?'Prix reçus des flux fournisseurs. Vérifiez leur disponibilité auprès du vendeur.':'Aucun flux Internet connecté : recherche dans le catalogue enregistré, aux prix saisis depuis les annonces. Ajoutez un flux JSON fournisseur pour importer automatiquement les véhicules et leurs prix.'});
-  }catch(e){return Response.json({error:e.message||'Recherche impossible'},{status:500});}
+    if(!requestId)return Response.json({error:'Sélectionnez une commande pour rechercher ses 10 premières annonces sur les sites proposés.'},{status:400});
+    const records=await readRecords(c.db);
+    const request=records.find(r=>r.kind==='request'&&r.id===requestId);
+    if(!request)return Response.json({error:'Commande introuvable'},{status:404});
+    if(!c.webSearchKey)return Response.json({error:'La recherche Internet nécessite une clé d’API. Ajoutez BRAVE_SEARCH_API_KEY dans les secrets du site pour rechercher sur mobile.de, AutoScout24, La Centrale et leboncoin.',code:'SEARCH_NOT_CONFIGURED'},{status:503});
+    const candidates=await searchAnnouncements(request,c.webSearchKey);
+    return Response.json({mode:'web',candidates,results:candidates.map(v=>({requestId:request.id,vehicleId:v.id})),sources:SEARCH_SOURCES.map(s=>({name:s.name,ok:true,count:candidates.filter(v=>v.sourceId===s.id).length})),searchedAt:new Date().toISOString(),requestId,limit:10,message:'Jusqu’à 10 annonces classées selon la pertinence du moteur. Prix lus sur les pages accessibles ; critères, prix et disponibilité à vérifier avant publication.'},{headers:{'Cache-Control':'private, no-store'}});
+  }catch(e){return Response.json({error:e.message||'Recherche Internet impossible'},{status:502});}
 }

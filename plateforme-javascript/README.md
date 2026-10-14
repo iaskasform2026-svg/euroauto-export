@@ -45,3 +45,13 @@ L'exemple décrit le format et n'est pas une annonce réelle. `price` et `km` do
 Le prix proposé au client est saisi manuellement dans la ligne de rapprochement et sauvegardé. La case Publier n’est activable qu’avec un montant positif. L’API client ne transmet ni le prix vendeur, ni le contact fournisseur, ni le lien original.
 
 La modification d'une commande conserve son identifiant et sa date de création, puis retire les propositions précédentes dans la même transaction. Un autre client ne peut pas modifier cette commande.
+
+## Recherche Internet : 10 premières annonces
+
+Le bouton principal « Rechercher sur les sites » utilise une API Brave Search côté serveur avec les critères d’une commande et une restriction à mobile.de, AutoScout24 France, La Centrale et leboncoin. Configurez le secret runtime `BRAVE_SEARCH_API_KEY` avec une clé valide de https://api-dashboard.search.brave.com/ ; aucun secret ne doit être enregistré dans Git. Sans clé, une erreur explicite indique que la recherche web n’est pas activée. Aucun retour au catalogue n’est présenté comme une recherche Internet.
+
+Le moteur demande jusqu’à 20 liens à l’API, conserve uniquement les annonces des quatre domaines, supprime les doublons et affiche les 10 premières dans l’ordre de pertinence. Il peut afficher moins de 10 liens si les sources n’en retournent pas assez. Les prix EUR proviennent des offres structurées JSON-LD de l’annonce lorsque la page est accessible. Aucun prix n’est déduit du budget ni inventé à partir d’un extrait. Si la page bloque l’accès ou ne publie pas de prix exploitable, « À vérifier » est affiché.
+
+Ces résultats sont des annonces candidates : un résultat du moteur ne garantit pas tous les critères ni la disponibilité. « Vérifier l’annonce » permet de confirmer les données réelles et de l’ajouter au catalogue. Le prix proposé peut ensuite être enregistré et publié au client par la case à cocher. Le prix vendeur et les liens originaux restent dans l’administration.
+
+« Catalogue / flux » conserve le rapprochement de la base et des flux JSON comme une action secondaire explicitement distincte. La recherche Internet et les prix sur des sites réels ne sont pas vérifiés de bout en bout tant qu’une clé API valide n’est pas connectée ; les contrats et cas d’échec sont testés avec des réponses de test.
