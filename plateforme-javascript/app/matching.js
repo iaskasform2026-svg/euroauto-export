@@ -6,17 +6,26 @@ export function validateRequestBudget(request){
   if(min!==null&&(!Number.isFinite(min)||min<0)||max!==null&&(!Number.isFinite(max)||max<=0)||min!==null&&max!==null&&min>max)throw Error('Fourchette invalide : minimum positif ou nul, maximum positif et minimum inférieur ou égal au maximum.');
   return {minPrice:min,maxPrice:max,price:max};
 }
+export function requestYearRange(request){
+  if(Object.hasOwn(request,'minYear')||Object.hasOwn(request,'maxYear'))return {min:isSpecified(request.minYear)?request.minYear:null,max:isSpecified(request.maxYear)?request.maxYear:null};
+  return {min:isSpecified(request.year)?request.year:null,max:isSpecified(request.year)?request.year:null};
+}
+export function validateRequestYears(request){
+  const {min,max}=requestYearRange(request);
+  if([min,max].some(value=>value!==null&&(!Number.isInteger(value)||value<1950||value>2030))||min!==null&&max!==null&&min>max)throw Error('Années invalides : bornes entières de 1950 à 2030 et minimum inférieur ou égal au maximum.');
+  return {minYear:min,maxYear:max,year:min!==null&&min===max?min:null};
+}
 export function validateRequestCriteria(request){
   const clean={};
   for(const key of ['brand','model','engine']){if(isSpecified(request[key])&&(typeof request[key]!=='string'||request[key].length>499))throw Error('Critère '+key+' invalide');clean[key]=normalize(request[key])?String(request[key]).trim():'';}
-  clean.year=isSpecified(request.year)?request.year:null;
-  if(clean.year!==null&&(!Number.isInteger(clean.year)||clean.year<1950||clean.year>2030))throw Error('Année invalide');
-  return {...clean,...validateRequestBudget(request)};
+  return {...clean,...validateRequestYears(request),...validateRequestBudget(request)};
 }
 export function matchDetails(request,vehicle){
   const checks=[];
   for(const key of ['brand','model','engine'])if(isSpecified(request[key]))checks.push({key,match:normalize(request[key])===normalize(vehicle[key])});
-  if(isSpecified(request.year))checks.push({key:'year',match:request.year===vehicle.year});
+  const years=requestYearRange(request);
+  if(years.min!==null)checks.push({key:'minYear',match:Number.isInteger(vehicle.year)&&vehicle.year>=years.min});
+  if(years.max!==null)checks.push({key:'maxYear',match:Number.isInteger(vehicle.year)&&vehicle.year<=years.max});
   const {min,max}=requestPriceRange(request);
   if(min!==null)checks.push({key:'minPrice',match:Number.isFinite(min)&&min>=0&&Number.isFinite(vehicle.price)&&vehicle.price>=min});
   if(max!==null)checks.push({key:'maxPrice',match:Number.isFinite(max)&&max>0&&Number.isFinite(vehicle.price)&&vehicle.price<=max});

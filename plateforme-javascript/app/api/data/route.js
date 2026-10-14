@@ -77,7 +77,7 @@ export async function PATCH(req) {
     const old = JSON.parse(existing.data);
     const data = body.data || {};
     Object.assign(data,validateRequestCriteria(data));
-    const clean = {brand:data.brand,model:data.model,engine:data.engine,year:data.year,minPrice:data.minPrice,maxPrice:data.maxPrice,price:data.maxPrice,notes:String(data.notes||'').slice(0,2000),createdAt:old.createdAt,updatedAt:new Date().toISOString()};
+    const clean = {brand:data.brand,model:data.model,engine:data.engine,year:data.year,minYear:data.minYear,maxYear:data.maxYear,minPrice:data.minPrice,maxPrice:data.maxPrice,price:data.maxPrice,notes:String(data.notes||'').slice(0,2000),createdAt:old.createdAt,updatedAt:new Date().toISOString()};
     // One atomic batch prevents proposals for old criteria from remaining published.
     await c.db.batch([
       c.db.prepare('UPDATE records SET data=? WHERE id=? AND owner=?').bind(JSON.stringify(clean),body.id,c.user.userId),
