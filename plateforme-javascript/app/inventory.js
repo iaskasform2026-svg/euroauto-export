@@ -16,7 +16,7 @@ export function parseInventory(input, supplierId, sourceUrl, fetchedAt) {
       || v.currency && v.currency !== 'EUR' || v.km!=null&&(typeof v.km!=='number'||!Number.isFinite(v.km)||v.km<0) || !v.url) {rejected++;return [];}
     let url;
     try {url = publicFeedUrl(v.url);} catch {rejected++;return [];}
-    return [{brand:v.brand.trim(),model:v.model.trim(),engine:v.engine?.trim()||'',year:v.year??null,price:v.price,km:v.km??null,url,supplierId,currency:'EUR',sourceUrl,fetchedAt,priceSource:'Flux fournisseur',notes:''}];
+    return [{brand:v.brand.trim(),model:v.model.trim(),engine:v.engine?.trim()||'',year:v.year??null,price:v.price,km:v.km??null,url,supplierId,currency:'EUR',taxBasis:['HT','TTC'].includes(v.taxBasis)?v.taxBasis:'Non précisé',sourceUrl,fetchedAt,priceSource:'Flux fournisseur',notes:''}];
   });
   return {vehicles,rejected};
 }
@@ -33,7 +33,7 @@ export function parseCsv(text){
   if(!rows.length)throw Error('Flux CSV vide : en-têtes requis');
   const names=rows.shift().map(headerKey);
   if(new Set(names).size!==names.length)throw Error('En-têtes CSV dupliqués');
-  const aliases={marque:'brand',modele:'model',moteur:'engine',motorisation:'engine',annee:'year',prix:'price',kilometrage:'km',lien:'url',devise:'currency'};
+  const aliases={marque:'brand',modele:'model',moteur:'engine',motorisation:'engine',annee:'year',prix:'price',kilometrage:'km',lien:'url',devise:'currency',taxbasis:'taxBasis',regimeprix:'taxBasis'};
   const canonical=names.map(k=>aliases[k]||k);
   if(!['brand','model','price','url'].every(k=>canonical.includes(k)))throw Error('Colonnes CSV requises : brand, model, price, url');
   return rows.slice(0,1000).map(values=>{const item=Object.fromEntries(canonical.map((k,i)=>[k,(values[i]||'').trim()]));for(const key of ['year','price','km']){const raw=(item[key]||'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');item[key]=!raw&&key!=='price'?null:/^\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN;}return item;});

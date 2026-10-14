@@ -1,6 +1,8 @@
+import {fetchAemInventory} from './connectors/auto-export-marseille.js';
 import {matchesRequest} from './matching.js';
 import {publicFeedUrl,parseInventory,decodeInventory} from './inventory.js';
 export async function fetchInventory(supplier,fetcher=fetch){
+  if(supplier.connector==='auto-export-marseille')return fetchAemInventory(supplier,fetcher);
   const sourceUrl=publicFeedUrl(supplier.feedUrl);
   const response=await fetcher(sourceUrl,{headers:{Accept:'application/json, text/csv;q=0.9'},redirect:'error',signal:AbortSignal.timeout(12000)});
   if(!response.ok)throw Error('Réponse HTTP '+response.status);
@@ -29,7 +31,7 @@ export async function synchronizeFeeds(c,feeds,fetcher=fetch){
       const statements=[c.db.prepare("DELETE FROM records WHERE kind='vehicle' AND json_extract(data,'$.sourceUrl')=? AND json_extract(data,'$.supplierId')=?").bind(sourceUrl,supplier.id)];
       const seen=new Set();
       for(const vehicle of vehicles){if(seen.has(vehicle.url))continue;seen.add(vehicle.url);const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(supplier.id+'|'+vehicle.url));const id='feed-'+Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');statements.push(c.db.prepare('INSERT INTO records (id,kind,owner,data) VALUES (?,?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').bind(id,'vehicle',c.user.userId,JSON.stringify({...vehicle,sourceName:supplier.name,createdAt:vehicle.fetchedAt})));}
-      await c.db.batch(statements);reports.push({supplierId:supplier.id,name:supplier.name,ok:true,count:seen.size,rejected,sourceUrl});
+      await c.db.batch(statements);reports.push({supplierId:supplier.id,name:supplier.name,ok:true,count:seen.size,rejected,sourceUrl,unavailable:stock.unavailable||0,scanned:stock.scanned,truncated:!!stock.truncated,warnings:stock.warnings||[]});
     }catch(e){reports.push({supplierId:supplier.id,name:supplier.name,ok:false,error:e.message});}
   }
   return reports;

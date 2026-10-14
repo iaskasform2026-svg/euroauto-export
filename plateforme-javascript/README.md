@@ -4,15 +4,15 @@ Plateforme avec espace client, portail fournisseurs et rapprochement. Applicatio
 
 ## Recherche dans les flux fournisseurs publics
 
-Le bouton principal **Rechercher dans les flux** télécharge les stocks JSON ou CSV des fournisseurs configurés, importe les véhicules et affiche les dix premières correspondances par prix vendeur croissant. Aucun serveur SearXNG ni clé d’API n’est nécessaire. Il faut des URL de stocks publics accessibles en HTTPS ; une page d’annonce ou de comparateur n’est pas un flux.
+Le bouton principal **Rechercher les fournisseurs** consulte les connecteurs de fiches publiques et les stocks JSON/CSV configurés, puis affiche les dix premières correspondances par prix vendeur croissant. Le connecteur Auto Export Marseille est ajouté à la première recherche ; les autres flux restent à configurer. Aucun serveur SearXNG ni clé d’API n’est nécessaire. Il faut des URL de stocks publics accessibles en HTTPS ; une page d’annonce ou de comparateur n’est pas un flux.
 
 1. Ouvrir **Fournisseurs**.
 2. Ajouter un fournisseur ou utiliser **Modifier** sur sa ligne.
 3. Renseigner **URL du flux public JSON ou CSV** avec une URL fournie par ce professionnel.
-4. Dans **Rapprochement**, choisir une demande, puis cliquer **Rechercher dans les flux**.
+4. Dans **Rapprochement**, choisir une demande, puis cliquer **Rechercher les fournisseurs**.
 5. Saisir le prix proposé au client et cocher la publication.
 
-Aucun flux réel n’a été fourni ou connecté lors de la création. Sans URL configurée, le résultat indique explicitement l’absence de flux et reste vide. Le catalogue manuel n’est pas présenté comme une recherche de flux. Le bouton secondaire **Catalogue enregistré** consulte séparément les données déjà enregistrées et signale que les prix peuvent dater de leur dernière importation.
+Aucun flux JSON/CSV réel n’a été fourni. Auto Export Marseille est une source HTML distincte, prête à être consultée au premier clic de recherche. Un flux non configuré n’est jamais présenté comme un stock consulté. Le catalogue manuel n’est pas présenté comme une recherche de flux. Le bouton secondaire **Catalogue enregistré** consulte séparément les données déjà enregistrées et signale que les prix peuvent dater de leur dernière importation.
 
 Chaque critère renseigné sur la commande est comparé à la donnée correspondante de la fiche : marque, modèle et moteur (égalité après suppression des espaces de bord et de la casse), année minimum et/ou maximum inclusives, prix minimum et/ou maximum inclusifs. Chaque champ vide est ignoré. Une donnée absente de la fiche ne satisfait pas un critère renseigné, mais n’exclut pas le véhicule si ce critère est vide sur la commande. Tous les champs de recherche peuvent rester vides ; dans ce cas les dix premiers véhicules exploitables sont retournés. Les commentaires sont conservés comme texte libre, sans servir de filtre.
 
@@ -63,3 +63,17 @@ L’ancienne route de configuration SearXNG est désactivée. Ses fichiers d’i
 ## Validation
 
 Compilation de production ; tests d’import JSON/CSV, prix décimaux, limite de dix, classement, doublons, source invalide/indisponible, absence de flux sans faux retour au catalogue, et accès administrateur. Les tests réseau utilisent des réponses de test. Aucun flux fournisseur réel ni test navigateur n’a été vérifié de bout en bout.
+
+## Connecteurs de fiches publiques
+
+**Auto Export Marseille** est intégré comme source au premier clic Rechercher les fournisseurs. Le connecteur consulte l’accueil et le catalogue public, puis jusqu’à 16 fiches distinctes, avec trois lectures simultanées au maximum. Les rapports signalent les limites et les échecs : la lecture est partielle si davantage de fiches sont découvertes. Seuls les faits utiles sont conservés (marque, modèle, moteur lorsqu’explicite, année, prix, régime HT/TTC, disponibilité et URL), sans photos, descriptions commerciales ou textes complets. Le moteur peut être extrait d’une mention explicite du titre ; aucune valeur manquante n’est remplacée par un souhait client.
+
+Les fiches marquées rupture, vendu, indisponible ou réservé sont exclues. Les prix de cette source sont HT lorsqu’annoncés comme tels. Le régime est affiché dans l’administration. Le régime du prix proposé au client est choisi séparément ; Non précisé n’est pas transformé en TTC. Les fourchettes comparent les montants affichés sans conversion de TVA.
+
+**leboncoin** dispose d’un lecteur de données structurées publiques et d’un formulaire dans Fournisseurs → Importer une fiche leboncoin. Il est possible de coller manuellement le HTML de la fiche ouverte dans le navigateur. Seul le bloc correspondant à l’identifiant de l’annonce est lu ; les recommandations, contacts privés et messages ne sont pas importés. Le lecteur repose sur la présence d’un bloc JSON public contenant prix et attributs ; sans ce bloc, l’import échoue explicitement et l’ajout manuel des champs reste possible.
+
+Une tentative de lecture directe vérifie robots.txt, n’emprunte aucune session connectée et s’arrête en cas d’interdiction ou HTTP 403. Le test réel a constaté que leboncoin refuse les accès automatisés et exige une permission spécifique. Aucune collecte automatique leboncoin n’est donc activée, aucun contournement, proxy ou usurpation de robot n’est utilisé. Une automatisation future exige un accès fourni/autorisé par leboncoin.
+
+Les prix vendeur, liens originaux et détails de source restent dans l’administration. Le client voit uniquement le montant proposé et son régime explicitement choisi. Le catalogue enregistré permet de rapprocher les fiches importées manuellement.
+
+Validation du connecteur AEM : huit fiches publiques réellement téléchargées, leurs champs analysés, dont une rupture exclue et sept fiches avec prix HT. Tests du scan limité et des échecs avec ces pages sauvegardées ; lecture directe depuis le Worker publié non vérifiée. leboncoin : refus réel HTTP 403 observé ; arrêt sur la politique robots et import HTML testés sur un exemple de structure, sans fiche leboncoin réelle accessible pour une validation de bout en bout. Vérifier avec le vendeur la disponibilité et le prix avant engagement.
