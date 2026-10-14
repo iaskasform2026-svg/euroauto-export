@@ -1,57 +1,58 @@
 # EuropAuto — JavaScript / React
 
-Plateforme de sourcing automobile à trois espaces. Le code de l'application est en JavaScript (.js et .jsx), avec CSS pour la présentation. Vinext assure le serveur React et les API ; D1 conserve les données.
+Plateforme automobile avec trois espaces : client, fournisseurs et rapprochement. L’application et ses API utilisent JavaScript/JSX ; le socle Vinext/Sites conserve ses fichiers TypeScript. Les données sont conservées en base D1.
 
-## Parcours
+## Fonctionnement
 
-1. Connexion via ChatGPT, puis inscription (nom et téléphone).
-2. Plusieurs choix de véhicule avec marque, modèle, motorisation exacte, année et prix proposé.
-3. Portail administratif de sources européennes ; ajout manuel de concessionnaires et véhicules.
-4. Recherches externes ciblées par demande et rapprochement du catalogue enregistré.
-5. Prix vendeur visible dans le rapprochement ; saisie séparée du prix proposé au client. Ce dernier montant est le seul transmis à l’espace client.
-6. Bouton Modifier sur chaque commande : mise à jour des critères et retrait atomique des anciennes propositions.
-7. Bouton Rechercher : rapprochement du catalogue et import des flux JSON fournisseurs connectés, avec rapport des erreurs et horodatage.
-8. Case à cocher pour publier ou retirer chaque proposition. La colonne client est vide tant qu'aucune proposition n'est publiée.
+- Connexion via ChatGPT et profil client (nom et téléphone).
+- Plusieurs choix par client : marque, modèle, moteur, année et prix proposé.
+- Modification d’une commande avec contrôle de propriété. Les anciennes propositions sont retirées atomiquement après modification.
+- Portail des sources européennes et base de concessionnaires.
+- Recherche web via votre instance SearXNG, sans clé Brave.
+- Jusqu’à 10 annonces distinctes sur mobile.de, AutoScout24 France, La Centrale et leboncoin, dans l’ordre retourné par le moteur.
+- Prix vendeur dans l’administration ; prix proposé au client saisi séparément, puis publication par case à cocher.
+- Le client reçoit uniquement le prix proposé ; coordonnées fournisseur et lien original restent dans l’administration.
 
-Le rapprochement impose les quatre critères exacts (insensibles à la casse et aux espaces en début/fin) et un prix inférieur ou égal au budget. Les portails de petites annonces ne sont pas collectés automatiquement. Chaque fournisseur peut renseigner un flux de stock JSON HTTPS public. Le bouton Rechercher lit ces flux et importe les véhicules et leurs prix vendeur, sans calcul ni majoration. Sans flux connecté, seule la base enregistrée est consultée et l’interface le signale. Les flux défaillants sont exclus des résultats de la recherche. Un flux complet remplace le stock importé de la même source.
+## Activer la recherche sans clé
 
-## Accès
+Le moteur SearXNG doit être installé sur un serveur séparé. Les fichiers et instructions se trouvent dans [`deployment/searxng/README.md`](deployment/searxng/README.md).
 
-Le site est publié en privé pour son propriétaire. Le premier compte authentifié qui ouvre l'API est enregistré comme administrateur ; les autres comptes ont un rôle client et voient seulement leurs demandes et les propositions publiées pour eux. Ouvrir une première fois avec le compte propriétaire avant toute extension d'accès. Ne pas rendre le site public sans remplacer cet amorçage par une attribution explicite des rôles administrateurs.
+Dans Rapprochement, cliquer **Configurer SearXNG**, saisir l’URL HTTPS de votre instance et utiliser **Tester et enregistrer**. La plateforme vérifie une réponse JSON avant de sauvegarder l’URL en base. Il est également possible de déclarer `SEARXNG_URL` dans l’environnement serveur ; la valeur enregistrée dans l’administration prend priorité.
 
-## Fichiers
+Aucune clé de recherche API n’est nécessaire. Aucun serveur SearXNG n’a été créé ni raccordé à la version publiée à ce stade. Docker n’est pas disponible dans l’environnement de création ; les fichiers d’hébergement sont préparés, leur démarrage n’a pas été testé. Le site s’exécute sur Cloudflare Workers et ne peut pas héberger lui-même le service Python/Docker.
 
-- app/portal.jsx : interface et formulaires
-- app/api/data/route.js : API, validation et contrôle d'accès
-- app/matching.js : règles de rapprochement
-- app/chatgpt-auth.js : connexion
-- db/schema.js : tables
-- drizzle/ : migrations
+La recherche limite les domaines et les chemins aux annonces, supprime les doublons et conserve les dix premières. Elle peut afficher moins de dix résultats. Une annonce candidate doit être vérifiée et ajoutée au catalogue avant de publier un prix proposé. Le classement d’un moteur ne garantit pas à lui seul la motorisation, l’année, la disponibilité ou tous les autres critères.
 
-## Vérification
+Les prix EUR proviennent des offres structurées JSON-LD des pages accessibles. Les prix absents restent À vérifier ; aucun budget ou extrait n’est utilisé pour inventer un prix. Les erreurs des moteurs et pages inaccessibles sont signalées. Aucune instance publique tierce n’est utilisée automatiquement comme solution de secours.
 
-La compilation de production a été validée. Les règles de rapprochement ont été vérifiées sur un cas positif et cinq cas négatifs. Aucun test de navigateur ni test de connexion réelle n'a été effectué dans cet environnement.
+## Catalogue et flux fournisseurs
 
-## Flux fournisseur et prix
-
-Dans Fournisseurs, ajoutez un professionnel avec le champ « Flux de stock JSON ». La réponse du flux doit être une liste JSON ou un objet contenant `vehicles`. Format :
+Le bouton secondaire **Catalogue / flux** interroge séparément les véhicules enregistrés et les flux JSON HTTPS renseignés sur les fournisseurs. Format du flux : une liste JSON ou un objet `vehicles`.
 
 ```json
 {"vehicles":[{"brand":"Peugeot","model":"308","engine":"1.6 HDi","year":2015,"price":7999.95,"currency":"EUR","km":120000,"url":"https://concessionnaire.example/annonce-308"}]}
 ```
 
-L'exemple décrit le format et n'est pas une annonce réelle. `price` et `km` doivent être numériques, la devise EUR, les critères renseignés et le lien une URL HTTPS publique. Les lignes incomplètes sont ignorées, jamais complétées par des prix estimés. Huit sources maximum sont consultées par recherche ; limite de 2 Mo et 1 000 véhicules par flux. Redirections non suivies. Le prix fournisseur n’est pas garanti à jour : contrôler le stock et le prix avec le vendeur.
+Cet exemple décrit le format et n’est pas une annonce réelle. `price` et `km` doivent être numériques ; la devise doit être EUR. Les données incomplètes sont ignorées. Huit flux au maximum par recherche, 2 Mo et 1 000 véhicules par flux ; redirections non suivies. Les sources défaillantes sont exclues des résultats de cette recherche. Un flux complet remplace le stock importé de la même source.
 
-Le prix proposé au client est saisi manuellement dans la ligne de rapprochement et sauvegardé. La case Publier n’est activable qu’avec un montant positif. L’API client ne transmet ni le prix vendeur, ni le contact fournisseur, ni le lien original.
+Le rapprochement du catalogue exige les quatre critères exacts (insensibles à la casse et aux espaces en début/fin) et un prix vendeur inférieur ou égal au budget. Après vérification, le prix proposé au client peut être enregistré et publié s’il est positif.
 
-La modification d'une commande conserve son identifiant et sa date de création, puis retire les propositions précédentes dans la même transaction. Un autre client ne peut pas modifier cette commande.
+## Accès
 
-## Recherche Internet : 10 premières annonces
+Le site est privé pour son propriétaire. Le premier compte authentifié est enregistré comme administrateur ; les autres comptes ne peuvent accéder qu’à leurs commandes et propositions publiées. Ouvrir d’abord avec le propriétaire avant d’étendre l’accès. Avant une ouverture publique, remplacer cet amorçage par une attribution explicite du rôle administrateur.
 
-Le bouton principal « Rechercher sur les sites » utilise une API Brave Search côté serveur avec les critères d’une commande et une restriction à mobile.de, AutoScout24 France, La Centrale et leboncoin. Configurez le secret runtime `BRAVE_SEARCH_API_KEY` avec une clé valide de https://api-dashboard.search.brave.com/ ; aucun secret ne doit être enregistré dans Git. Sans clé, une erreur explicite indique que la recherche web n’est pas activée. Aucun retour au catalogue n’est présenté comme une recherche Internet.
+## Fichiers principaux
 
-Le moteur demande jusqu’à 20 liens à l’API, conserve uniquement les annonces des quatre domaines, supprime les doublons et affiche les 10 premières dans l’ordre de pertinence. Il peut afficher moins de 10 liens si les sources n’en retournent pas assez. Les prix EUR proviennent des offres structurées JSON-LD de l’annonce lorsque la page est accessible. Aucun prix n’est déduit du budget ni inventé à partir d’un extrait. Si la page bloque l’accès ou ne publie pas de prix exploitable, « À vérifier » est affiché.
+- `app/portal.jsx` : interface et formulaires.
+- `app/api/data/route.js` : commandes, fournisseurs, véhicules et prix proposés.
+- `app/api/search/route.js` : recherche SearXNG administrative.
+- `app/api/search-settings/route.js` : test de connexion et enregistrement de l’URL.
+- `app/web-search.js` : adaptation SearXNG, filtrage et lecture des annonces.
+- `app/api/catalog-search/route.js` : catalogue et flux JSON.
+- `app/matching.js` : règles de rapprochement.
+- `db/schema.js` et `drizzle/` : tables et migrations.
+- `deployment/searxng/` : hébergement Docker séparé.
 
-Ces résultats sont des annonces candidates : un résultat du moteur ne garantit pas tous les critères ni la disponibilité. « Vérifier l’annonce » permet de confirmer les données réelles et de l’ajouter au catalogue. Le prix proposé peut ensuite être enregistré et publié au client par la case à cocher. Le prix vendeur et les liens originaux restent dans l’administration.
+## Validation
 
-« Catalogue / flux » conserve le rapprochement de la base et des flux JSON comme une action secondaire explicitement distincte. La recherche Internet et les prix sur des sites réels ne sont pas vérifiés de bout en bout tant qu’une clé API valide n’est pas connectée ; les contrats et cas d’échec sont testés avec des réponses de test.
+Compilation de production et tests des critères, prix exacts, isolation client, modification atomique, limite de dix annonces, ordre, déduplication, domaines autorisés, connexion SearXNG et erreurs de JSON. Les tests réseau utilisent des réponses de test. Aucun test navigateur ni recherche de bout en bout sur une instance SearXNG réelle n’a été réalisé.

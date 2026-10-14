@@ -1,0 +1,31 @@
+name: europauto-search
+services:
+  engine:
+    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?Run node setup.mjs first}
+      SEARXNG_BASE_URL: https://${SEARXNG_DOMAIN:?Set your domain in .env}/
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+      - engine-cache:/var/cache/searxng
+    expose:
+      - "8080"
+  https:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SEARXNG_DOMAIN: ${SEARXNG_DOMAIN:?Set your domain in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - certificate-data:/data
+      - proxy-config:/config
+    depends_on:
+      - engine
+volumes:
+  engine-cache:
+  certificate-data:
+  proxy-config:
