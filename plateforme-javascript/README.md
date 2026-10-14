@@ -14,7 +14,7 @@ Le bouton principal **Rechercher dans les flux** télécharge les stocks JSON ou
 
 Aucun flux réel n’a été fourni ou connecté lors de la création. Sans URL configurée, le résultat indique explicitement l’absence de flux et reste vide. Le catalogue manuel n’est pas présenté comme une recherche de flux. Le bouton secondaire **Catalogue enregistré** consulte séparément les données déjà enregistrées et signale que les prix peuvent dater de leur dernière importation.
 
-Les correspondances exigent marque, modèle, moteur et année identiques, ainsi qu’un prix vendeur inférieur ou égal au budget. La casse et les espaces en début/fin sont ignorés. Les doublons d’URL d’annonce sont supprimés par commande. Dix lignes maximum sont retournées, avec le nombre total de correspondances.
+Les correspondances exigent marque, modèle, moteur et année identiques, ainsi qu’un prix vendeur compris entre le prix minimum et le prix maximum, bornes incluses. Ces deux montants sont saisis et modifiables sur chaque commande ; un minimum supérieur au maximum est refusé. Les anciennes commandes conservent leur budget comme maximum et un minimum de zéro jusqu’à modification. La casse et les espaces en début/fin sont ignorés. Les doublons d’URL d’annonce sont supprimés par commande. Dix lignes maximum sont retournées, avec le nombre total de correspondances.
 
 ## Formats de stock
 
