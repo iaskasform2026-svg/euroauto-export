@@ -11,12 +11,12 @@ export function parseInventory(input, supplierId, sourceUrl, fetchedAt) {
   if (!Array.isArray(items)) throw Error('Le flux doit contenir une liste de véhicules JSON');
   let rejected = 0;
   const vehicles = items.slice(0,1000).flatMap(v => {
-    if (!v || !['brand','model','engine'].every(k => typeof v[k] === 'string' && v[k].trim() && v[k].length<500)
-      || !Number.isInteger(v.year) || v.year<1950 || v.year>2030 || typeof v.price !== 'number' || !Number.isFinite(v.price) || v.price<=0
-      || v.currency && v.currency !== 'EUR' || typeof v.km !== 'number' || !Number.isFinite(v.km) || v.km<0 || !v.url) {rejected++;return [];}
+    if (!v || !['brand','model'].every(k => typeof v[k] === 'string' && v[k].trim() && v[k].length<500)
+      || v.engine!=null&&(typeof v.engine!=='string'||v.engine.length>499) || v.year!=null&&(!Number.isInteger(v.year)||v.year<1950||v.year>2030) || typeof v.price !== 'number' || !Number.isFinite(v.price) || v.price<=0
+      || v.currency && v.currency !== 'EUR' || v.km!=null&&(typeof v.km!=='number'||!Number.isFinite(v.km)||v.km<0) || !v.url) {rejected++;return [];}
     let url;
     try {url = publicFeedUrl(v.url);} catch {rejected++;return [];}
-    return [{brand:v.brand.trim(),model:v.model.trim(),engine:v.engine.trim(),year:v.year,price:v.price,km:v.km,url,supplierId,currency:'EUR',sourceUrl,fetchedAt,priceSource:'Flux fournisseur',notes:''}];
+    return [{brand:v.brand.trim(),model:v.model.trim(),engine:v.engine?.trim()||'',year:v.year??null,price:v.price,km:v.km??null,url,supplierId,currency:'EUR',sourceUrl,fetchedAt,priceSource:'Flux fournisseur',notes:''}];
   });
   return {vehicles,rejected};
 }
@@ -35,8 +35,8 @@ export function parseCsv(text){
   if(new Set(names).size!==names.length)throw Error('En-têtes CSV dupliqués');
   const aliases={marque:'brand',modele:'model',moteur:'engine',motorisation:'engine',annee:'year',prix:'price',kilometrage:'km',lien:'url',devise:'currency'};
   const canonical=names.map(k=>aliases[k]||k);
-  if(!['brand','model','engine','year','price','km','url'].every(k=>canonical.includes(k)))throw Error('Colonnes CSV requises : brand, model, engine, year, price, km, url');
-  return rows.slice(0,1000).map(values=>{const item=Object.fromEntries(canonical.map((k,i)=>[k,(values[i]||'').trim()]));for(const key of ['year','price','km']){const raw=(item[key]||'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');item[key]=/^\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN;}return item;});
+  if(!['brand','model','price','url'].every(k=>canonical.includes(k)))throw Error('Colonnes CSV requises : brand, model, price, url');
+  return rows.slice(0,1000).map(values=>{const item=Object.fromEntries(canonical.map((k,i)=>[k,(values[i]||'').trim()]));for(const key of ['year','price','km']){const raw=(item[key]||'').replace(/[\s\u00a0\u202f]/g,'').replace(',','.');item[key]=!raw&&key!=='price'?null:/^\d+(?:\.\d+)?$/.test(raw)?Number(raw):NaN;}return item;});
 }
 export function decodeInventory(body,contentType='',url=''){
   const trimmed=body.trim().replace(/^\uFEFF/,'');

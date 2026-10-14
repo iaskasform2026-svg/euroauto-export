@@ -1,5 +1,5 @@
 import {publicFeedUrl} from '../../inventory.js';
-import { matchesRequest, validateRequestBudget } from '../../matching';
+import { matchesRequest, validateRequestCriteria } from '../../matching';
 import { getContext as context } from '../../data-access';
 export const dynamic = 'force-dynamic';
 const reply = (x, status = 200) => Response.json(x, { status });
@@ -21,9 +21,9 @@ export async function POST(req) {
         if (kind === 'profile' && (!str('name') || !str('phone')))
             throw Error('Nom et téléphone requis');
         if (kind === 'request') { const profile = await c.db.prepare('SELECT id FROM records WHERE id=? AND kind=?').bind('profile-'+c.user.userId, 'profile').first(); if (!profile) throw Error('Complétez votre inscription avant de créer une demande'); }
-        if (kind === 'request') Object.assign(data,validateRequestBudget(data));
+        if (kind === 'request') Object.assign(data,validateRequestCriteria(data));
         if (kind === 'vehicle' && (!Number.isFinite(data.km) || data.km < 0)) throw Error('Kilométrage invalide');
-        if (kind === 'request' || kind === 'vehicle') {
+        if (kind === 'vehicle') {
             if (!['brand', 'model', 'engine'].every(str) || !Number.isInteger(data.year) || data.year < 1950 || data.year > 2030 || !Number.isFinite(data.price) || data.price <= 0)
                 throw Error('Véhicule ou prix invalide');
         }
@@ -76,11 +76,8 @@ export async function PATCH(req) {
     if (!existing || existing.owner !== c.user.userId) return reply({error:'Commande inaccessible'},404);
     const old = JSON.parse(existing.data);
     const data = body.data || {};
-    Object.assign(data,validateRequestBudget(data));
-    if (!['brand','model','engine'].every(key => typeof data[key]==='string' && data[key].trim().length>0 && data[key].length<500)
-      || !Number.isInteger(data.year) || data.year<1950 || data.year>2030 || !Number.isFinite(data.price) || data.price<=0)
-      return reply({error:'Critères ou prix invalide'},400);
-    const clean = {brand:data.brand.trim(),model:data.model.trim(),engine:data.engine.trim(),year:data.year,minPrice:data.minPrice,maxPrice:data.maxPrice,price:data.maxPrice,notes:String(data.notes||'').slice(0,2000),createdAt:old.createdAt,updatedAt:new Date().toISOString()};
+    Object.assign(data,validateRequestCriteria(data));
+    const clean = {brand:data.brand,model:data.model,engine:data.engine,year:data.year,minPrice:data.minPrice,maxPrice:data.maxPrice,price:data.maxPrice,notes:String(data.notes||'').slice(0,2000),createdAt:old.createdAt,updatedAt:new Date().toISOString()};
     // One atomic batch prevents proposals for old criteria from remaining published.
     await c.db.batch([
       c.db.prepare('UPDATE records SET data=? WHERE id=? AND owner=?').bind(JSON.stringify(clean),body.id,c.user.userId),

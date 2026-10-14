@@ -14,7 +14,11 @@ Le bouton principal **Rechercher dans les flux** télécharge les stocks JSON ou
 
 Aucun flux réel n’a été fourni ou connecté lors de la création. Sans URL configurée, le résultat indique explicitement l’absence de flux et reste vide. Le catalogue manuel n’est pas présenté comme une recherche de flux. Le bouton secondaire **Catalogue enregistré** consulte séparément les données déjà enregistrées et signale que les prix peuvent dater de leur dernière importation.
 
-Les correspondances exigent marque, modèle, moteur et année identiques, ainsi qu’un prix vendeur compris entre le prix minimum et le prix maximum, bornes incluses. Ces deux montants sont saisis et modifiables sur chaque commande ; un minimum supérieur au maximum est refusé. Les anciennes commandes conservent leur budget comme maximum et un minimum de zéro jusqu’à modification. La casse et les espaces en début/fin sont ignorés. Les doublons d’URL d’annonce sont supprimés par commande. Dix lignes maximum sont retournées, avec le nombre total de correspondances.
+Chaque critère renseigné sur la commande est comparé à la donnée correspondante de la fiche : marque, modèle et moteur (égalité après suppression des espaces de bord et de la casse), année exacte, prix minimum et/ou maximum inclusifs. Chaque champ vide est ignoré. Une donnée absente de la fiche ne satisfait pas un critère renseigné, mais n’exclut pas le véhicule si ce critère est vide sur la commande. Tous les champs de recherche peuvent rester vides ; dans ce cas les dix premiers véhicules exploitables sont retournés. Les commentaires sont conservés comme texte libre, sans servir de filtre.
+
+Le prix minimum et le prix maximum sont indépendamment facultatifs. Les limites invalides ou inversées sont refusées. Les anciennes commandes conservent leur ancien budget comme maximum ; retirer ce maximum dans la modification supprime cette contrainte. Le nombre de critères affiché dans le rapprochement reflète uniquement les champs effectivement renseignés.
+
+Les doublons d’URL d’annonce sont supprimés par commande. Dix lignes maximum sont retournées, avec le nombre total de correspondances.
 
 ## Formats de stock
 
@@ -26,7 +30,7 @@ JSON : une liste ou un objet `vehicles`, avec les champs ci-dessous.
 
 Cet exemple décrit le format ; ce n’est pas une annonce réelle. Les valeurs numériques JSON doivent être des nombres. Seuls les prix EUR sont pris en charge ; les stocks fournis doivent être en euros. Aucune conversion ou estimation de prix n’est faite.
 
-CSV : séparateur virgule ou point-virgule, champs entre guillemets pris en charge. Colonnes obligatoires : `brand,model,engine,year,price,km,url`. Colonne `currency` facultative, valeur `EUR`. Les noms français `marque,modèle,moteur,année,prix,kilométrage,lien,devise` sont également acceptés. Les prix à virgule décimale sont acceptés, notamment avec le séparateur point-virgule.
+CSV : séparateur virgule ou point-virgule, champs entre guillemets pris en charge. Colonnes obligatoires : `brand,model,price,url`. Les colonnes `engine,year,km` sont facultatives et leurs valeurs absentes restent inconnues. Colonne `currency` facultative, valeur `EUR`. Les noms français `marque,modèle,moteur,année,prix,kilométrage,lien,devise` sont également acceptés. Les prix à virgule décimale sont acceptés, notamment avec le séparateur point-virgule.
 
 ```csv
 marque;modèle;moteur;année;prix;kilométrage;lien;devise
