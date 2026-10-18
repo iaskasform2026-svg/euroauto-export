@@ -6,3 +6,5 @@
 .configuration{background:#fff8ed;border-color:#efdfc3}.unverified{background:#fff4dd;color:#9c742c}.tablewrap td:nth-child(2){white-space:normal;min-width:220px;max-width:320px}.external-search .secondary{padding:12px}
 .searchconnection{display:flex;justify-content:space-between;align-items:center;gap:16px}.searchconnection p{overflow-wrap:anywhere}@media(max-width:760px){.searchconnection{align-items:flex-start;flex-direction:column}}
 .price-entry select,.dialog label select{padding:9px;border:1px solid #dce5e2;border-radius:6px;font-size:11px;background:#fff}.price-entry select{width:105px}
+
+.pastepanel{padding:26px;margin-bottom:24px}.pastepanel p{color:#62716b;line-height:1.6}.pastepanel textarea{width:100%;min-height:280px;resize:vertical;border:1px solid #dce4df;border-radius:10px;padding:16px;font:inherit;line-height:1.6;box-sizing:border-box}.pastepanel textarea:focus{outline:2px solid #39795b}.pasteactions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.pasteactions small{color:#64756b}.pastepanel h2{margin-top:0}
