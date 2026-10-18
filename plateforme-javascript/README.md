@@ -77,3 +77,13 @@ Une tentative de lecture directe vérifie robots.txt, n’emprunte aucune sessio
 Les prix vendeur, liens originaux et détails de source restent dans l’administration. Le client voit uniquement le montant proposé et son régime explicitement choisi. Le catalogue enregistré permet de rapprocher les fiches importées manuellement.
 
 Validation du connecteur AEM : huit fiches publiques réellement téléchargées, leurs champs analysés, dont une rupture exclue et sept fiches avec prix HT. Tests du scan limité et des échecs avec ces pages sauvegardées ; lecture directe depuis le Worker publié non vérifiée. leboncoin : refus réel HTTP 403 observé ; arrêt sur la politique robots et import HTML testés sur un exemple de structure, sans fiche leboncoin réelle accessible pour une validation de bout en bout. Vérifier avec le vendeur la disponibilité et le prix avant engagement.
+
+## Assistant de collecte dans le navigateur
+
+La page **Analyser du HTML** propose **Ouvrir, copier et analyser**. Elle dialogue avec l’extension Manifest V3 fournie dans `browser-extension/`. Le ZIP téléchargeable sur la page est `public/downloads/europauto-assistant-navigateur.zip` ; les instructions détaillées figurent dans `browser-extension/INSTALLATION.md`. Chrome/Edge : décompresser, ouvrir la gestion des extensions, activer le mode développeur, charger le dossier contenant manifest.json puis recharger EuropAuto.
+
+L’extension ouvre un onglet visible sur une liste Auto Export Marseille `/annonces/` ou `/annonces/page/N/`, lit le DOM rendu et renvoie le HTML à l’onglet EuropAuto. Le HTML est placé dans la zone puis analysé immédiatement. L’onglet source reste ouvert et la capture est datée. Le pont est limité à l’origine exacte d’EuropAuto et aux messages de la page principale. Aucune session serveur, aucun cookie ou mot de passe n’est lu. Les champs de formulaires sont retirés du HTML retourné. Aucun ajout au catalogue et aucun envoi du HTML à l’API.
+
+La collecte nécessite l’extension installée par l’utilisateur ; il ne s’agit pas d’un navigateur distant exécuté dans le Worker. Une seule page est collectée à chaque clic, sans parcours de pagination, connexion, résolution de CAPTCHA ou contournement d’un blocage. Les autres sources, dont leboncoin, restent en import manuel. L’extension vérifie la politique d’accès de la source et abandonne si aucune carte lisible n’est présente.
+
+Validation : syntaxe JS, restrictions d’origine/URL, refus de domaines non autorisés, retour du HTML du fichier réel et focalisation de l’onglet initial avec API navigateur simulée. Le parcours réel d’installation et d’exécution Chrome/Edge n’a pas été vérifié. Aucun navigateur de test disponible dans cette session.

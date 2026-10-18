@@ -8,3 +8,5 @@
 .price-entry select,.dialog label select{padding:9px;border:1px solid #dce5e2;border-radius:6px;font-size:11px;background:#fff}.price-entry select{width:105px}
 
 .pastepanel{padding:26px;margin-bottom:24px}.pastepanel p{color:#62716b;line-height:1.6}.pastepanel textarea{width:100%;min-height:280px;resize:vertical;border:1px solid #dce4df;border-radius:10px;padding:16px;font:inherit;line-height:1.6;box-sizing:border-box}.pastepanel textarea:focus{outline:2px solid #39795b}.pasteactions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.pasteactions small{color:#64756b}.pastepanel h2{margin-top:0}
+
+.browseragent{border:1px solid #bcd4c6;background:#f1f7f3}.browseragent input,.pastepanel input[type=url]{width:100%;padding:12px;border:1px solid #cbdcd1;border-radius:7px;box-sizing:border-box;margin:8px 0 16px}.browseragent details{margin-top:15px}.browseragent ol{line-height:1.9;padding-left:22px}.browseragent code{overflow-wrap:anywhere}.browseragent button:disabled{opacity:.6;cursor:wait}

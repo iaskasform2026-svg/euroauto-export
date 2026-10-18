@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "EuropAuto — Assistant de collecte",
+  "version": "1.0.0",
+  "description": "Ouvre une liste publique Auto Export Marseille et transmet son HTML au tableau EuropAuto à votre demande.",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://autoexportmarseille.com/*", "https://www.autoexportmarseille.com/*"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "content_scripts": [{"matches": ["https://europauto-portail.sharprain32.chatgpt.site/*"], "js": ["bridge.js"], "run_at": "document_idle", "all_frames": false}]
+}
