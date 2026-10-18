@@ -1,3 +1,4 @@
+import {parseVehicaListing} from './vehica-pasted';
 import {parsePastedSearch} from './pasted-search';
 const scalar=value=>typeof value==='string'||typeof value==='number'?String(value):'';
 const label=value=>scalar(value)||scalar(value?.name)||scalar(value?.value);
@@ -24,6 +25,7 @@ export function parsePastedHtml(html,base=''){
  if(!html.trim())throw Error('Collez le code source HTML de la liste des annonces.');
  if(html.length>8000000)throw Error('Le HTML dépasse la limite de 8 millions de caractères.');
  if(!/<[a-z!][\s\S]*>/i.test(html))throw Error('Le contenu ne semble pas être du HTML. Copiez le code source de la page.');
+ const vehica=parseVehicaListing(html);if(vehica.length)return {rows:vehica,method:'Cartes annonces Vehica / Auto Export Marseille',warning:'Seules les annonces présentes dans ce fichier sont affichées. Les prix sont ceux du HTML copié ; disponibilité et régime HT/TTC restent à vérifier sur les fiches.'};
  // A detached template is inert: no scripts execute and no external resources load.
  const template=document.createElement('template');template.innerHTML=html;const root=template.content;
  const rows=[];let scripts=0;
